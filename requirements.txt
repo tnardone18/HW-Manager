@@ -3,3 +3,4 @@ openai
 PyPDF2
 PyMuPDF
 beautifulsoup4
+anthropic
