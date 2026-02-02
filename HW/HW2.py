@@ -52,7 +52,7 @@ use_advanced = st.sidebar.checkbox("Use advanced model")
 if llm_provider == "ChatGPT":
     model = "gpt-4o" if use_advanced else "gpt-4o-mini"
 else:
-    model = "claude-sonnet-4.5" if use_advanced else "claude-haiku-4.5"
+    model = "claude-3-5-haiku-20241022" if use_advanced else "claude-sonnet-4-20250514"
 
 st.sidebar.caption(f"Current model: {model}")
 
