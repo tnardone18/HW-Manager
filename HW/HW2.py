@@ -1,5 +1,6 @@
 import streamlit as st
 from openai import OpenAI
+import anthropic
 import requests
 from bs4 import BeautifulSoup
 
@@ -39,17 +40,32 @@ output_language = st.sidebar.selectbox(
     ["English", "French", "Italian"]
 )
 
+# LLM provider selection
+llm_provider = st.sidebar.radio(
+    "Choose LLM provider:",
+    ["ChatGPT", "Claude"]
+)
+
 # Model selection
 use_advanced = st.sidebar.checkbox("Use advanced model")
-model = "gpt-4o" if use_advanced else "gpt-4o-mini"
+
+if llm_provider == "ChatGPT":
+    model = "gpt-4o" if use_advanced else "gpt-4o-mini"
+else:
+    model = "claude-sonnet-4-20250514" if use_advanced else "claude-haiku-4-20250514"
+
 st.sidebar.caption(f"Current model: {model}")
 
-# Get API key from secrets
+# Get API keys from secrets
 openai_api_key = st.secrets.get("OPENAI_API_KEY")
+anthropic_api_key = st.secrets.get("ANTHROPIC_API_KEY")
 
-if openai_api_key:
-    client = OpenAI(api_key=openai_api_key)
-
+# Check for required API key
+if llm_provider == "ChatGPT" and not openai_api_key:
+    st.warning("Please add your OpenAI API key to the Streamlit secrets.")
+elif llm_provider == "Claude" and not anthropic_api_key:
+    st.warning("Please add your Anthropic API key to the Streamlit secrets.")
+else:
     if url:
         if st.button("Generate Summary"):
             # Read content from URL
@@ -64,20 +80,35 @@ if openai_api_key:
                 else:
                     instruction = f"Summarize the following document in 5 bullet points. Write the summary in {output_language}."
                 
-                messages = [
-                    {
-                        "role": "user",
-                        "content": f"{instruction}\n\nDocument: {document}",
-                    }
-                ]
-
-                # Generate summary using OpenAI API
-                stream = client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    stream=True,
-                )
-
-                st.write_stream(stream)
-else:
-    st.warning("Please add your OpenAI API key to the Streamlit secrets.")
+                prompt = f"{instruction}\n\nDocument: {document}"
+                
+                if llm_provider == "ChatGPT":
+                    try:
+                        client = OpenAI(api_key=openai_api_key)
+                        messages = [{"role": "user", "content": prompt}]
+                        
+                        stream = client.chat.completions.create(
+                            model=model,
+                            messages=messages,
+                            stream=True,
+                        )
+                        st.write_stream(stream)
+                    except Exception as e:
+                        st.error(f"OpenAI API error: {e}. Please check that your API key is valid.")
+                    
+                else:
+                    try:
+                        client = anthropic.Anthropic(api_key=anthropic_api_key)
+                        
+                        with st.empty():
+                            response_text = ""
+                            with client.messages.stream(
+                                model=model,
+                                max_tokens=1024,
+                                messages=[{"role": "user", "content": prompt}]
+                            ) as stream:
+                                for text in stream.text_stream:
+                                    response_text += text
+                                    st.markdown(response_text)
+                    except Exception as e:
+                        st.error(f"Anthropic API error: {e}. Please check that your API key is valid.")
