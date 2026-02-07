@@ -5,3 +5,4 @@ PyMuPDF
 beautifulsoup4
 anthropic
 requests
+tiktoken
