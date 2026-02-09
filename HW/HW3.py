@@ -31,7 +31,7 @@ def count_tokens(messages, model="gpt-4o-mini"):
     return total_tokens
 
 # show title and description
-st.title("My Lab3 Question Answering Chatbot")
+st.title("My HW3 Question Answering Chatbot")
 
 st.write("""
 Welcome! This is a question answering chatbot powered by OpenAI's GPT models. Here's how it works:
