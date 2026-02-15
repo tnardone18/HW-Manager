@@ -4,7 +4,7 @@ import tiktoken
 import sys
 import chromadb
 from pathlib import Path
-from PyPDF2 import PdfReader
+from bs4 import BeautifulSoup
 
 __import__('pysqlite3')
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
@@ -63,6 +63,11 @@ If the user says "No", "no", "nope", or any negative response:
 - Then ask: "What else can I help you with?" to go back to the start"""
 }
 
+def extract_text_from_html(html_path):
+    with open(html_path, 'r', encoding='utf-8') as f:
+        soup = BeautifulSoup(f.read(), 'html.parser')
+    return soup.get_text()
+
 def add_to_collection(collection, text, file_name):
     client = st.session_state.client
     response = client.embeddings.create(
@@ -76,20 +81,13 @@ def add_to_collection(collection, text, file_name):
         embeddings=[embedding]
     )
 
-def extract_text_from_pdf(pdf_path):
-    reader = PdfReader(pdf_path)
-    text = ""
-    for page in reader.pages:
-        text += page.extract_text() or ""
-    return text
-
-def load_pdfs_to_collection(folder_path, collection):
+def load_htmls_to_collection(folder_path, collection):
     folder = Path(folder_path)
-    pdf_files = list(folder.glob("*.pdf"))
-    for pdf_file in pdf_files:
-        text = extract_text_from_pdf(pdf_file)
+    html_files = list(folder.glob("*.html"))
+    for html_file in html_files:
+        text = extract_text_from_html(html_file)
         if text.strip():
-            add_to_collection(collection, text, pdf_file.name)
+            add_to_collection(collection, text, html_file.name)
 
 # create an OpenAI client
 if 'client' not in st.session_state:
@@ -97,8 +95,10 @@ if 'client' not in st.session_state:
     st.session_state.client = OpenAI(api_key=api_key)
 
 if collection.count() == 0:
-    load_pdfs_to_collection('./su_orgs/', collection)
+    load_htmls_to_collection('./su_orgs/', collection)
 
+html_file_count = len(list(Path('./su_orgs/').glob("*.html")))
+st.sidebar.write(f"HTML files loaded: {html_file_count}")
 st.sidebar.write(f"Documents in ChromaDB: {collection.count()}")
   
 
