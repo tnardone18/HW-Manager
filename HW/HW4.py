@@ -10,7 +10,7 @@ __import__('pysqlite3')
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 chroma_client = chromadb.PersistentClient(path='./ChromaDB_for_lab')
-collection = chroma_client.get_or_create_collection('Lab4Collection')                                        
+collection = chroma_client.get_or_create_collection('HW4Collection')                                        
 
 def count_tokens(messages, model="gpt-4o-mini"):
     """Count the total tokens in a list of messages."""
@@ -28,7 +28,7 @@ def count_tokens(messages, model="gpt-4o-mini"):
     return total_tokens
 
 # show title and description
-st.title("My Lab4 Question Answering Chatbot")
+st.title("My HW4 Question Answering Chatbot")
 
 st.write("""
 Welcome! This is a question answering chatbot powered by OpenAI's GPT models. Here's how it works:
@@ -97,7 +97,7 @@ if 'client' not in st.session_state:
     st.session_state.client = OpenAI(api_key=api_key)
 
 if collection.count() == 0:
-    load_pdfs_to_collection('./Lab-04-Data/', collection)
+    load_pdfs_to_collection('./su_orgs/', collection)
 
 st.sidebar.write(f"Documents in ChromaDB: {collection.count()}")
   
