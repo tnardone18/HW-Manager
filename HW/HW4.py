@@ -13,7 +13,7 @@ chroma_client = chromadb.PersistentClient(path='./ChromaDB_for_lab')
 collection = chroma_client.get_or_create_collection('HW4Collection')                                        
 
 # show title and description
-st.title("My HW4 Question Answering Chatbot")
+st.title("My iSchool Chatbot using RAG")
 
 st.write("""
 Welcome! This is a question answering chatbot powered by OpenAI's GPT models. Here's how it works:
