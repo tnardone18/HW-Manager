@@ -99,7 +99,6 @@ if collection.count() == 0:
 
 html_file_count = len(list(Path('./su_orgs/').glob("*.html")))
 st.sidebar.write(f"HTML files loaded: {html_file_count}")
-st.sidebar.write(f"Documents in ChromaDB: {collection.count()}")
   
 
 if "messages" not in st.session_state:
