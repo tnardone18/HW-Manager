@@ -6,3 +6,6 @@ beautifulsoup4
 anthropic
 requests
 tiktoken
+chromadb
+pysqlite3-binary
+protobuf==3.20
