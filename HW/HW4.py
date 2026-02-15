@@ -12,21 +12,6 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 chroma_client = chromadb.PersistentClient(path='./ChromaDB_for_lab')
 collection = chroma_client.get_or_create_collection('HW4Collection')                                        
 
-def count_tokens(messages, model="gpt-4o-mini"):
-    """Count the total tokens in a list of messages."""
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        encoding = tiktoken.get_encoding("cl100k_base")
-    
-    total_tokens = 0
-    for message in messages:
-        total_tokens += 4
-        for key, value in message.items():
-            total_tokens += len(encoding.encode(value))
-    total_tokens += 2
-    return total_tokens
-
 # show title and description
 st.title("My HW4 Question Answering Chatbot")
 
@@ -35,7 +20,7 @@ Welcome! This is a question answering chatbot powered by OpenAI's GPT models. He
 
 - **Ask any question** and the chatbot will answer in simple, easy-to-understand language.
 - **Choose your model** in the sidebar: "mini" (GPT-4o-mini, faster and cheaper) or "regular" (GPT-4o, more powerful).
-- **Conversation memory**: This chatbot uses a **2,000 token buffer** to manage conversation history. The system prompt is always included and never discarded. For the rest of the conversation, the chatbot keeps as many recent messages as possible within a 2,000 token budget. Older messages are dropped first to stay within the limit. You can see the current token usage in the sidebar.
+- **Conversation memory**: This chatbot uses a **5-interaction buffer** to manage conversation history. The system prompt is always included and never discarded. The chatbot keeps the last 5 user-assistant exchanges. Older messages are dropped to stay within the limit.
 """)
 
 openAI_model = st.sidebar.selectbox("Which Model?", ("mini", "regular"))
@@ -104,7 +89,7 @@ def chunk_text(text, chunk_size=3000, overlap=500):
     while start < len(text):
         end = start + chunk_size
         chunks.append(text[start:end])
-        start += chunk_size - overlap  # slide the window forward with overlap
+        start += chunk_size - overlap
 
         # Stop after 2 chunks as required by the assignment
         if len(chunks) >= 2:
@@ -135,11 +120,9 @@ def load_htmls_to_collection(folder_path, collection):
     for html_file in html_files:
         text = extract_text_from_html(html_file)
         if text.strip():
-            # Chunk the document into 2 pieces using fixed-size chunking
             chunks = chunk_text(text)
             for i, chunk in enumerate(chunks):
                 if chunk.strip():
-                    # Each chunk gets a unique ID: filename_chunk0, filename_chunk1
                     chunk_id = f"{html_file.name}_chunk{i}"
                     add_to_collection(collection, chunk, chunk_id)
 
@@ -148,6 +131,8 @@ if 'client' not in st.session_state:
     api_key = st.secrets["OPENAI_API_KEY"]
     st.session_state.client = OpenAI(api_key=api_key)
 
+# Only load HTML files into ChromaDB if the collection is empty (first run).
+# Since we use PersistentClient, the data is saved to disk and persists across app restarts.
 if collection.count() == 0:
     load_htmls_to_collection('./su_orgs/', collection)
 
@@ -197,37 +182,34 @@ if prompt := st.chat_input("What is your question?"):
 The following content was retrieved from course documents and may be relevant to the user's question. Use this information to answer accurately. If you use this information, let the user know it came from course materials.
 {rag_context}"""
 
-    TOKEN_BUDGET = 2000
+    # --- 5-Interaction Conversation Buffer ---
+    # An "interaction" = one user message + one assistant response (2 messages).
+    # We keep the last 5 interactions (10 messages) plus the initial greeting.
+    # The system prompt and RAG context are always included and never discarded.
+    # Older interactions beyond the last 5 are dropped from the buffer.
+    MAX_INTERACTIONS = 5
+    MAX_MESSAGES = MAX_INTERACTIONS * 2  # 5 interactions = 10 messages (user + assistant pairs)
 
+    # Start with system prompt (always included)
     buffered_messages = [rag_system_prompt]
 
+    # Always include the initial assistant greeting
     initial_greeting = st.session_state.messages[0]
     buffered_messages.append(initial_greeting)
 
-    base_tokens = count_tokens(buffered_messages, model_to_use)
-
+    # Get conversation messages (everything after the initial greeting)
     conversation_messages = st.session_state.messages[1:]
 
-    selected_messages = []
-    running_tokens = base_tokens
+    # Keep only the last 5 interactions (last 10 messages)
+    if len(conversation_messages) > MAX_MESSAGES:
+        conversation_messages = conversation_messages[-MAX_MESSAGES:]
 
-    for msg in reversed(conversation_messages):
-        msg_tokens = count_tokens([msg], model_to_use)
-        if running_tokens + msg_tokens <= TOKEN_BUDGET + base_tokens:
-            selected_messages.insert(0, msg)
-            running_tokens += msg_tokens
-        else:
-            break
+    buffered_messages.extend(conversation_messages)
 
-    buffered_messages.extend(selected_messages)
-
-    # Display token usage info in sidebar
-    total_tokens = count_tokens(buffered_messages, model_to_use)
-    st.sidebar.markdown("### Token Usage")
-    st.sidebar.write(f"System prompt tokens: {count_tokens([SYSTEM_PROMPT], model_to_use)}")
-    st.sidebar.write(f"Conversation buffer tokens: {running_tokens - base_tokens}")
-    st.sidebar.write(f"Token budget for conversation: {TOKEN_BUDGET}")
-    st.sidebar.write(f"Total messages in buffer: {len(buffered_messages)}")
+    # Display buffer info in sidebar
+    st.sidebar.markdown("### Conversation Buffer")
+    st.sidebar.write(f"Max interactions stored: {MAX_INTERACTIONS}")
+    st.sidebar.write(f"Messages in buffer: {len(conversation_messages)}")
     st.sidebar.write(f"Total messages in history: {len(st.session_state.messages)}")
 
     client = st.session_state.client
