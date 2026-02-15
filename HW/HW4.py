@@ -23,7 +23,7 @@ Welcome! This is a question answering chatbot powered by OpenAI's GPT models. He
 - **Conversation memory**: This chatbot uses a **5-interaction buffer** to manage conversation history. The system prompt is always included and never discarded. The chatbot keeps the last 5 user-assistant exchanges. Older messages are dropped to stay within the limit.
 """)
 
-openAI_model = st.sidebar.selectbox("Which Model?", ("mini", "regular"))
+openAI_model = st.sidebar.selectbox("Which Model (ChatGPT)?", ("mini", "regular"))
 if openAI_model == "mini":
     model_to_use = "gpt-4o-mini"
 else:
