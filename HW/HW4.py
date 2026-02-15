@@ -131,11 +131,6 @@ if 'client' not in st.session_state:
     api_key = st.secrets["OPENAI_API_KEY"]
     st.session_state.client = OpenAI(api_key=api_key)
 
-# TEMPORARY: Force reset ChromaDB to rebuild with correct chunks.
-# Remove these two lines after confirming the correct chunk count (~605).
-chroma_client.delete_collection('HW4Collection')
-collection = chroma_client.get_or_create_collection('HW4Collection')
-
 # Only load HTML files into ChromaDB if the collection is empty (first run).
 # Since we use PersistentClient, the data is saved to disk and persists across app restarts.
 if collection.count() == 0:
