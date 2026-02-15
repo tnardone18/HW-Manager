@@ -68,7 +68,51 @@ def extract_text_from_html(html_path):
         soup = BeautifulSoup(f.read(), 'html.parser')
     return soup.get_text()
 
-def add_to_collection(collection, text, file_name):
+# --- Chunking Method: Fixed-Size Character Chunking with Sliding Window Overlap ---
+#
+# Why fixed-size chunking?
+#   Fixed-size chunking is the simplest and most predictable approach to splitting documents.
+#   It segments text into equally sized pieces based on a character count. This ensures that
+#   every chunk stays within the embedding model's input limits and produces consistently
+#   sized vectors, which helps with fair similarity comparisons during retrieval.
+#
+# Why sliding window overlap?
+#   When you split text at a fixed boundary, you risk cutting a sentence or idea in half.
+#   By introducing an overlap between consecutive chunks, the end of one chunk and the
+#   beginning of the next share some text. This maintains continuity of ideas across chunk
+#   boundaries, so important context that falls near a split point is still captured in at
+#   least one chunk. This improves retrieval quality because relevant information is less
+#   likely to be lost at the edges.
+#
+# Parameters chosen:
+#   - chunk_size=3000 characters: Large enough to capture meaningful context from each
+#     HTML page, while small enough to stay within embedding model limits.
+#   - overlap=500 characters: ~17% overlap preserves sentence continuity at boundaries
+#     without creating too much redundancy.
+#   - Each document produces exactly 2 chunks as required by the assignment. If the text
+#     is shorter than one chunk, it is stored as a single chunk to avoid empty entries.
+
+def chunk_text(text, chunk_size=3000, overlap=500):
+    """
+    Split text into fixed-size chunks with sliding window overlap.
+    Each chunk is 'chunk_size' characters long, and consecutive chunks
+    overlap by 'overlap' characters to preserve context at boundaries.
+    Returns exactly 2 chunks per document (as required).
+    """
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += chunk_size - overlap  # slide the window forward with overlap
+
+        # Stop after 2 chunks as required by the assignment
+        if len(chunks) >= 2:
+            break
+
+    return chunks
+
+def add_to_collection(collection, text, doc_id):
     client = st.session_state.client
     response = client.embeddings.create(
         input=text,
@@ -77,17 +121,27 @@ def add_to_collection(collection, text, file_name):
     embedding = response.data[0].embedding
     collection.add(
         documents=[text],
-        ids=[file_name],
+        ids=[doc_id],
         embeddings=[embedding]
     )
 
 def load_htmls_to_collection(folder_path, collection):
+    """
+    Load HTML files, chunk each into 2 fixed-size pieces with overlap,
+    and store each chunk as a separate document in ChromaDB.
+    """
     folder = Path(folder_path)
     html_files = list(folder.glob("*.html"))
     for html_file in html_files:
         text = extract_text_from_html(html_file)
         if text.strip():
-            add_to_collection(collection, text, html_file.name)
+            # Chunk the document into 2 pieces using fixed-size chunking
+            chunks = chunk_text(text)
+            for i, chunk in enumerate(chunks):
+                if chunk.strip():
+                    # Each chunk gets a unique ID: filename_chunk0, filename_chunk1
+                    chunk_id = f"{html_file.name}_chunk{i}"
+                    add_to_collection(collection, chunk, chunk_id)
 
 # create an OpenAI client
 if 'client' not in st.session_state:
@@ -99,6 +153,7 @@ if collection.count() == 0:
 
 html_file_count = len(list(Path('./su_orgs/').glob("*.html")))
 st.sidebar.write(f"HTML files loaded: {html_file_count}")
+st.sidebar.write(f"Chunks in ChromaDB: {collection.count()}")
   
 
 if "messages" not in st.session_state:
