@@ -13,7 +13,7 @@ chroma_client = chromadb.PersistentClient(path='./ChromaDB_for_lab')
 collection = chroma_client.get_or_create_collection('HW4Collection')                                        
 
 # show title and description
-st.title("My iSchool Chatbot using RAG")
+st.title("My HW4 Question Answering Chatbot")
 
 st.write("""
 Welcome! This is a question answering chatbot powered by OpenAI's GPT models. Here's how it works:
@@ -23,7 +23,7 @@ Welcome! This is a question answering chatbot powered by OpenAI's GPT models. He
 - **Conversation memory**: This chatbot uses a **5-interaction buffer** to manage conversation history. The system prompt is always included and never discarded. The chatbot keeps the last 5 user-assistant exchanges. Older messages are dropped to stay within the limit.
 """)
 
-openAI_model = st.sidebar.selectbox("Which Model (ChatGPT)?", ("mini", "regular"))
+openAI_model = st.sidebar.selectbox("Which Model?", ("mini", "regular"))
 if openAI_model == "mini":
     model_to_use = "gpt-4o-mini"
 else:
@@ -130,6 +130,11 @@ def load_htmls_to_collection(folder_path, collection):
 if 'client' not in st.session_state:
     api_key = st.secrets["OPENAI_API_KEY"]
     st.session_state.client = OpenAI(api_key=api_key)
+
+# TEMPORARY: Force reset ChromaDB to rebuild with correct chunks.
+# Remove these two lines after confirming the correct chunk count (~605).
+chroma_client.delete_collection('HW4Collection')
+collection = chroma_client.get_or_create_collection('HW4Collection')
 
 # Only load HTML files into ChromaDB if the collection is empty (first run).
 # Since we use PersistentClient, the data is saved to disk and persists across app restarts.
